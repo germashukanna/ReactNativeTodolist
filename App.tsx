@@ -1,99 +1,144 @@
 import {StatusBar} from 'expo-status-bar';
 import {
-    ActivityIndicator,
-    Alert,
-    Button,
+    FlatList,
+    ListRenderItem,
     StyleSheet,
     Text,
-    View,
-    Image,
     TextInput,
-    TouchableOpacity, FlatList, ListRenderItem,
-    Dimensions
+    TouchableOpacity,
+    View,
+    Animated,
+    LayoutAnimation, LayoutAnimationConfig
 } from 'react-native';
-import {useState} from "react";
+import {useCallback, useEffect, useRef, useState} from "react";
+import {Svg1} from "./assets/SVG/Svg1";
 
-const {width, height} = Dimensions.get('screen')
 
-const WIDTH = width
-const HEIGHT = height
-
-type ItemType = {
-    id: number
-    title: string
-    price: number
+type TaskType = {
+    id: number,
+    title: string,
+    isDone: boolean
 }
 
-const titles = ['one', 'two', 'tree', 'five', 'six']
-const prices = [1, 2, 3, 4, 6]
-
-//const data1 = [... Array(30).map((_, index) => ({}))] первый вариант быстрого создания пустого массива
-// const data = new Array(30).fill(null).map((_, index) => ({})) второй вариант быстрого создания пустого массива
-
-const data: ItemType[] = [...Array(30)].map((_, index) => ({
+const titles = ['HTML', 'Css', 'React', 'React-native', 'Angular', 'NextJs']
+const data: TaskType[] = [...Array(30)].map((_, index) => ({
     id: index + 1,
     title: titles[index % titles.length],
-    price: prices[index % prices.length],
+    isDone: !!(index % 2),
 }))
 
 export default function App() {
-    //console.log('data', JSON.stringify(data, null, 2))
+
+    const [tasks, setTasks] = useState<TaskType[]>(() => data)
+
     const [value, setValue] = useState('')
-    const render: ListRenderItem<ItemType> = ({item, index, separators}) => {
-        return <View style={styles.item}>
-            <Text style={styles.title}>{item.title}</Text>
-            <Text>{item.price}</Text>
-        </View>
+
+    const addTask = () => {
+        const newTask: TaskType = {
+            id: new Date().getTime(),
+            title: value,
+            isDone: false
+        }
+        setTasks([newTask, ...tasks])
+        setValue('')
     }
+
+    const updateTask = (id: number) => {
+        setTasks(tasks.map((el) => el.id === id ? {...el, isDone: !el.isDone} : el))
+    }
+
+    const removeTask = (id: number) => {
+        setTasks(tasks.filter((el) => el.id !== id))
+    }
+
+    const render: ListRenderItem<TaskType> = useCallback(({item, index}) => {
+        return <Item {...item} index={index} removeTask={removeTask} updateTask={updateTask}/>
+    }, [addTask, removeTask, updateTask])
 
     return (
         <View style={styles.container}>
-            <Text>Open up App.tsx to start working on your app!</Text>
-            <FlatList
-                ListEmptyComponent={() => {
-                    return <View><Text>Пустой массив</Text></View>
-                }}
-                ListHeaderComponent={() => {
-                    return <View><Text>Хедер</Text></View>
-                }}
-                ListFooterComponent={() => {
-                    return <View><Text>Футер</Text></View>
-                }}
-
-                data={data}
-                renderItem={render}
-                numColumns={2}
-                columnWrapperStyle={{justifyContent: 'space-between'}}
-                // keyExtractor={item => item.id}
-            />
-            {/*<ActivityIndicator/>*/}
-            {/*<ActivityIndicator size="large"/>*/}
-            {/*<ActivityIndicator size="small" color="#0000ff"/>*/}
-            {/*<ActivityIndicator size="large" color="#00ff00"/>*/}
-            {/*<Button*/}
-            {/*    title="Press me"*/}
-            {/*    onPress={() => Alert.alert('Simple Button pressed')}*/}
-            {/*/>*/}
-            {/*<Image*/}
-            {/*    style={{width: 100, height: 100, marginTop: 15}}*/}
-            {/*    source={{*/}
-            {/*        uri: 'https://reactnative.dev/img/tiny_logo.png', // более предпочтительнее*/}
-            {/*        //source={require('@expo/snack-static/react-native-logo.png')} => если файл лежит в папке*/}
-            {/*    }}*/}
-            {/*/>*/}
-            {/*<TextInput*/}
-            {/*    style={styles.input}*/}
-            {/*    onChangeText={setValue}*/}
-            {/*    value={value}*/}
-            {/*/>*/}
-            {/*<TouchableOpacity*/}
-            {/*   style={styles.button}*/}
-            {/*    onPress={() => {}}>*/}
-            {/*    <Text>Press Here</Text>*/}
-            {/*</TouchableOpacity>*/}
+            <View style={styles.inputContainer}>
+                <TextInput
+                    style={styles.input}
+                    value={value}
+                    onChangeText={setValue}
+                />
+                <TouchableOpacity style={styles.buttonAdd} onPress={addTask}>
+                    <Text>ADD</Text>
+                </TouchableOpacity>
+            </View>
+            <FlatList data={tasks} renderItem={render}/>
             <StatusBar style="auto"/>
         </View>
     );
+}
+
+type ItemType = TaskType & {
+    index: number,
+    removeTask: (id: number) => void,
+    updateTask: (id: number) => void
+}
+
+const layoutAnimConfig: LayoutAnimationConfig = {
+    duration: 300,
+    create: {
+        duration: 100,
+        type: LayoutAnimation.Types.easeInEaseOut,
+        property: LayoutAnimation.Properties.opacity,
+    },
+    update: {
+        duration: 100,
+        type: LayoutAnimation.Types.easeInEaseOut,
+        property: LayoutAnimation.Properties.scaleX,
+        springDamping: 0.6
+    },
+    delete: {
+        duration: 100,
+        type: LayoutAnimation.Types.easeInEaseOut,
+        property: LayoutAnimation.Properties.opacity
+    }
+}
+
+export const Item = ({id, title, isDone, index, removeTask, updateTask}: ItemType) => {
+    const animatedValue = useRef(new Animated.Value(0)).current
+    const animatedValue2 = useRef(new Animated.Value(isDone ? -100 : 0)).current
+    useEffect(() => {
+        Animated.timing(animatedValue, {
+            toValue: 1,
+            duration: 500,
+            delay: index * 100,
+            useNativeDriver: true
+        }).start()
+    }, [])
+    useEffect(() => {
+        Animated.timing(animatedValue2, {
+            toValue: isDone ? -100 : 1,
+            duration: 500,
+            delay: index * 100,
+            useNativeDriver: true
+        }).start()
+    }, [isDone])
+    return (
+        <Animated.View style={{opacity: animatedValue, transform: [{translateX: animatedValue2}]}}>
+            <TouchableOpacity
+                style={[styles.item, {backgroundColor: isDone ? '#ade17c' : '#b06289'}]}
+                onPress={() => {
+                    updateTask(id)
+                    LayoutAnimation.configureNext(layoutAnimConfig)
+                }
+                }
+            >
+                <Text style={styles.title}>{title}</Text>
+                <TouchableOpacity onPress={() => {
+                    removeTask(id)
+                    LayoutAnimation.configureNext(layoutAnimConfig) //анимация на удаление таски
+                }}>
+                    <Text>X</Text>
+                    <Svg1/>
+                </TouchableOpacity>
+            </TouchableOpacity>
+        </Animated.View>
+    )
 }
 
 const styles = StyleSheet.create({
@@ -103,37 +148,40 @@ const styles = StyleSheet.create({
         marginTop: 60,
         paddingHorizontal: 20,
     },
-    input: {
-        borderWidth: 1,
-        width: 200,
-        height: 32,
-    },
-    button: {
-        marginTop: 15,
-        alignItems: 'center',
-        backgroundColor: '#DDDDDD',
-        padding: 10,
-    },
     item: {
-        marginVertical: 5,
-        backgroundColor: '#a199e1',
         borderWidth: 1,
-        borderRadius: 10,
-        paddingHorizontal: 10,
+        marginVertical: 5,
+        paddingHorizontal: 15,
         paddingVertical: 5,
-        width: (WIDTH - 20 * 2) / 2 - 5,
-        //height: (HEIGHT - 20 * 2) / 2 - 5,
-        position: "relative"
+        borderRadius: 8,
+        flexDirection: 'row',
+        justifyContent: "space-between",
+        alignItems: 'center'
     },
     title: {
-        position: "absolute",
-        borderRadius: 10,
+        fontSize: 20,
+        color: '#fff',
+        fontWeight: '700'
+    },
+    inputContainer: {
+        flexDirection: 'row',
+        justifyContent: "space-between",
+        marginBottom: 20,
+    },
+    input: {
         borderWidth: 1,
-        backgroundColor: '#eadb7a',
-        paddingHorizontal: 5,
-        paddingVertical: 2,
-        fontSize: 14,
-        top: -15,
-        left: 15
-    }
+        flexGrow: 1,
+        marginRight: 30,
+        fontSize: 18,
+        paddingHorizontal: 15,
+        paddingVertical: 5,
+        borderRadius: 8,
+    },
+    buttonAdd: {
+        borderWidth: 1,
+        justifyContent: 'center',
+        paddingHorizontal: 15,
+        borderRadius: 8,
+    },
+
 });
